@@ -119,16 +119,10 @@ module.exports = function (User) {
 		};
 
 		try {
-			if (!meta.config.allowProfileImageUploads) {
-				throw new Error('[[error:profile-image-uploads-disabled]]');
-			}
-
-			validateUpload(data, meta.config.maximumProfileImageSize, User.getAllowedImageTypes());
-
-			const extension = file.typeToExtension(image.mimeFromBase64(data.imageData));
-			if (!extension) {
-				throw new Error('[[error:invalid-image-extension]]');
-			}
+			
+			const extension = validateUploadWrapper(data);
+			const tempPath = await getProfilePath(data.imageData);
+			
 
 			picture.path = await image.writeImageDataToTempFile(data.imageData);
 			picture.path = await convertToPNG(picture.path);
@@ -167,6 +161,13 @@ module.exports = function (User) {
 		}
 		return extension;
 	};
+
+	// Wrapper function which encapsulates getting a photo path
+	async function getProfilePath(imageData) {
+		let tempPath = await image.writeImageDataToTempFile(imageData);
+		tempPath = await convertToPNG(tempPath);
+		return tempPath;
+	}
 
 	async function deleteCurrentPicture(uid, field) {
 		if (meta.config['profile:keepAllUserImages']) {
