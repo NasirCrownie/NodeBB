@@ -121,11 +121,7 @@ module.exports = function (User) {
 		try {
 			
 			const extension = validateUploadWrapper(data);
-			const tempPath = await getProfilePath(data.imageData);
-			
-
-			picture.path = await image.writeImageDataToTempFile(data.imageData);
-			picture.path = await convertToPNG(picture.path);
+			const tempPath = await getProfilePathWrapper(data.imageData);
 
 			await image.resizeImage({
 				path: picture.path,
@@ -133,18 +129,12 @@ module.exports = function (User) {
 				height: meta.config.profileImageDimension,
 			});
 
-			const filename = generateProfileImageFilename(data.uid, extension);
-			const uploadedImage = await image.uploadImage(filename, `profile/uid-${data.uid}`, picture);
+			const uploadedImage = generateProfileImageFilename(data.uid, extension);
 
-			await deleteCurrentPicture(data.uid, 'uploadedpicture');
-			await User.updateProfile(data.callerUid, {
-				uid: data.uid,
-				uploadedpicture: uploadedImage.url,
-				picture: uploadedImage.url,
-			}, ['uploadedpicture', 'picture']);
+			await updateProfilePathWrapper(data.callerUid, data.uid, uploadedImage.url);
 			return uploadedImage;
 		} finally {
-			await file.delete(picture.path);
+			await file.delete(tempPath);
 		}
 	};
 
@@ -163,10 +153,20 @@ module.exports = function (User) {
 	};
 
 	// Wrapper function which encapsulates getting a photo path
-	async function getProfilePath(imageData) {
+	async function getProfilePathWrapper(imageData) {
 		let tempPath = await image.writeImageDataToTempFile(imageData);
 		tempPath = await convertToPNG(tempPath);
 		return tempPath;
+	}
+
+	// Wrapper function which updates path
+	async function updateProfilePathWrapper(callerUid, uid, imageUrl) {
+		await deleteCurrentPicture(uid, 'uploadedpicture');
+		await User.updateProfile(callerUid, {
+			uid,
+			uploadedpicture: imageUrl,
+			picture: imageUrl,
+		}, ['uploadedpicture', 'picture']);
 	}
 
 	async function deleteCurrentPicture(uid, field) {
