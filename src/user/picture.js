@@ -113,26 +113,14 @@ module.exports = function (User) {
 
 	// uploads image data in base64 as profile picture
 	User.uploadCroppedPicture = async function (data) {
-		const picture = {
-			name: 'profileAvatar',
-			uid: data.uid,
-		};
-
 		try {
 			
 			const extension = validateUploadWrapper(data);
 			const tempPath = await getProfilePathWrapper(data.imageData);
-
-			await image.resizeImage({
-				path: picture.path,
-				width: meta.config.profileImageDimension,
-				height: meta.config.profileImageDimension,
-			});
-
-			const uploadedImage = generateProfileImageFilename(data.uid, extension);
-
+			const uploadedImage = uploadProfilePathWrapper(data.uid, tempPath, extension);
 			await updateProfilePathWrapper(data.callerUid, data.uid, uploadedImage.url);
 			return uploadedImage;
+
 		} finally {
 			await file.delete(tempPath);
 		}
@@ -159,7 +147,17 @@ module.exports = function (User) {
 		return tempPath;
 	}
 
-	// Wrapper function which updates path
+	// Wrapper function which uploads photo path
+	async function uploadProfilePathWrapper(uid, tempPath, extension) {
+		const filename = generateProfileImageFilename(uid, extension);
+		return await image.uploadImage(filename, `profile/uid-${uid}`, {
+			uid,
+			path: tempPath,
+			name: 'profileAvatar',
+		});
+	}
+
+	// Wrapper function which updates photo path
 	async function updateProfilePathWrapper(callerUid, uid, imageUrl) {
 		await deleteCurrentPicture(uid, 'uploadedpicture');
 		await User.updateProfile(callerUid, {
