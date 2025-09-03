@@ -113,10 +113,11 @@ module.exports = function (User) {
 
 	// uploads image data in base64 as profile picture
 	User.uploadCroppedPicture = async function (data) {
+		const extension = validateUploadWrapper(data);
+		const tempPath = await getProfilePathWrapper(data.imageData);
+
 		try {
 			
-			const extension = validateUploadWrapper(data);
-			const tempPath = await getProfilePathWrapper(data.imageData);
 			const uploadedImage = uploadProfilePathWrapper(data.uid, tempPath, extension);
 			await updateProfilePathWrapper(data.callerUid, data.uid, uploadedImage.url);
 			return uploadedImage;
