@@ -154,6 +154,20 @@ module.exports = function (User) {
 		}
 	};
 
+	// Wrapper function which encapsulates the upload validation logic
+	function validateUploadWrapper(data) {
+		if (!meta.config.allowProfileImageUploads) {
+			throw new Error('[[error:profile-image-uploads-disabled]]');
+		}
+		validateUpload(data, meta.config.maximumProfileImageSize, User.getAllowedImageTypes());
+
+		const extension = file.typeToExtension(image.mimeFromBase64(data.imageData));
+		if (!extension) {
+			throw new Error('[[error:invalid-image-extension]]');
+		}
+		return extension;
+	};
+
 	async function deleteCurrentPicture(uid, field) {
 		if (meta.config['profile:keepAllUserImages']) {
 			return;
@@ -230,4 +244,6 @@ module.exports = function (User) {
 		const filename = value.split('/').pop();
 		return path.join(nconf.get('upload_path'), `profile/uid-${uid}`, filename);
 	}
+
+	
 };
