@@ -24,15 +24,7 @@ module.exports = function (User) {
 		return ['image/png', 'image/jpeg', 'image/bmp', 'image/gif'];
 	};
 
-	User.updateCoverPosition = async function (uid, position) {
-		// Reject anything that isn't two percentages
-		if (!/^[\d.]+%\s[\d.]+%$/.test(position)) {
-			winston.warn(`[user/updateCoverPosition] Invalid position received: ${position}`);
-			throw new Error('[[error:invalid-data]]');
-		}
-
-		await User.setUserField(uid, 'cover:position', position);
-	};
+	User.updateCoverPosition = (uid, position) => updateCoverPositionWrapper(User, uid, position);
 
 	User.updateCoverPicture = async function (data) {
 		const picture = {
@@ -161,6 +153,15 @@ module.exports = function (User) {
 		}, ['uploadedpicture', 'picture']);
 	}
 	
+};
+
+// Wrapper for updating cover position
+function updateCoverPositionWrapper(User, uid, position) {
+	if (!/^[\d.]+%\s[\d.]+%$/.test(position)) {
+		winston.warn(`[user/updateCoverPosition] Invalid position received: ${position}`);
+		throw new Error('[[error:invalid-data]]');
+	}
+	return User.setUserField(uid, 'cover:position', position);
 };
 
 // Wrapper function which encapsulates the upload validation logic
