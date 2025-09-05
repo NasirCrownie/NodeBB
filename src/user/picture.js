@@ -12,56 +12,17 @@ const meta = require('../meta');
 
 module.exports = function (User) {
 
-	User.getAllowedProfileImageExtensions = function () {
-		const exts = User.getAllowedImageTypes().map(type => mime.getExtension(type));
-		if (exts.includes('jpeg')) {
-			exts.push('jpg');
-		}
-		return exts;
-	};
+	User.getAllowedProfileImageExtensions = () => getAllowedProfileImageExtensionsWrapper(User);
 
-	User.getAllowedImageTypes = function () {
-		return ['image/png', 'image/jpeg', 'image/bmp', 'image/gif'];
-	};
+	User.getAllowedImageTypes = () => getAllowedImageTypesWrapper(User);
 
 	User.updateCoverPosition = (uid, position) => updateCoverPositionWrapper(User, uid, position);
 
-	User.updateCoverPicture = async function (data) {
-		const picture = {
-			name: 'profileCover',
-			uid: data.uid,
-		};
-
-		try {
-			if (!data.imageData && data.position) {
-				return await User.updateCoverPosition(data.uid, data.position);
-			}
-
-			validateUpload(data, meta.config.maximumCoverImageSize, ['image/png', 'image/jpeg', 'image/bmp']);
-
-			picture.path = await image.writeImageDataToTempFile(data.imageData);
-
-			const extension = file.typeToExtension(image.mimeFromBase64(data.imageData));
-			const filename = `${data.uid}-profilecover-${Date.now()}${extension}`;
-			const uploadData = await image.uploadImage(filename, `profile/uid-${data.uid}`, picture);
-
-			await deleteCurrentPicture(User, data.uid, 'cover:url');
-			await User.setUserField(data.uid, 'cover:url', uploadData.url);
-
-			if (data.position) {
-				await User.updateCoverPosition(data.uid, data.position);
-			}
-
-			return {
-				url: uploadData.url,
-			};
-		} finally {
-			await file.delete(picture.path);
-		}
-	};
+	User.updateCoverPicture = data => updateCoverPictureWrapper(User, data);
 
 	// uploads a image file as profile picture
 	User.uploadCroppedPictureFile = async function (data) {
+		
 		const userPhoto = data.file;
 		if (!meta.config.allowProfileImageUploads) {
 			throw new Error('[[error:profile-image-uploads-disabled]]');
@@ -126,6 +87,7 @@ module.exports = function (User) {
 	};
 
 	User.removeProfileImage = async function (uid) {
+		
 		const userData = await User.getUserFields(uid, ['uploadedpicture', 'picture']);
 		await deletePicture(User, uid, 'uploadedpicture');
 		await User.setUserFields(uid, {
@@ -155,8 +117,22 @@ module.exports = function (User) {
 	
 };
 
+// Wrapper to get allowed image types
+function getAllowedImageTypesWrapper() {
+	return ['image/png', 'image/jpeg', 'image/bmp', 'image/gif'];
+};
+
+// Wrapper to get allowed profile image extensions
+function getAllowedProfileImageExtensionsWrapper(User) {
+	
+	const exts = getAllowedImageTypesWrapper(User).map(type => mime.getExtension(type));
+	if (exts.includes('jpeg')) exts.push('jpg');
+	return exts;
+};
+
 // Wrapper for updating cover position
 function updateCoverPositionWrapper(User, uid, position) {
+	
 	if (!/^[\d.]+%\s[\d.]+%$/.test(position)) {
 		winston.warn(`[user/updateCoverPosition] Invalid position received: ${position}`);
 		throw new Error('[[error:invalid-data]]');
@@ -164,8 +140,42 @@ function updateCoverPositionWrapper(User, uid, position) {
 	return User.setUserField(uid, 'cover:position', position);
 };
 
+// Wrapper for updating cover picture
+async function updateCoverPictureWrapper(User, data) {
+	const picture = { name: 'profileCover', uid: data.uid };
+	
+
+	try {
+		if (!data.imageData && data.position) {
+			return await updateCoverPositionWrapper(User, data.uid, data.position);
+		}
+
+		validateUpload(data, meta.config.maximumCoverImageSize, ['image/png', 'image/jpeg', 'image/bmp']);
+
+		picture.path = await image.writeImageDataToTempFile(data.imageData);
+
+		const extension = file.typeToExtension(image.mimeFromBase64(data.imageData));
+		const filename = `${data.uid}-profilecover-${Date.now()}${extension}`;
+		const uploadData = await image.uploadImage(filename, `profile/uid-${data.uid}`, picture);
+
+		await deleteCurrentPicture(User, data.uid, 'cover:url');
+		await User.setUserField(data.uid, 'cover:url', uploadData.url);
+
+		if (data.position) {
+			await updateCoverPositionWrapper(User, data.uid, data.position);
+		}
+
+		return { url: uploadData.url };
+	} 
+	finally 
+	{
+		await file.delete(picture.path);
+	}
+}
+
 // Wrapper function which encapsulates the upload validation logic
 function validateUploadWrapper(User, data) {
+	
 	if (!meta.config.allowProfileImageUploads) {
 		throw new Error('[[error:profile-image-uploads-disabled]]');
 	}
@@ -177,8 +187,10 @@ function validateUploadWrapper(User, data) {
 	}
 	return extension;
 };
+
 // Wrapper function which encapsulates getting a photo path
 async function getProfilePathWrapper(imageData) {
+	
 	let tempPath = await image.writeImageDataToTempFile(imageData);
 	tempPath = await convertToPNG(tempPath);
 	return tempPath;
@@ -186,6 +198,7 @@ async function getProfilePathWrapper(imageData) {
 
 // Wrapper function which uploads photo path
 async function uploadProfilePathWrapper(uid, tempPath, extension) {
+	
 	const filename = generateProfileImageFilename(uid, extension);
 	return await image.uploadImage(filename, `profile/uid-${uid}`, {
 		uid,
